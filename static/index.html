@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Go Task Server</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 520px; margin: 40px auto; padding: 0 16px; }
+    form { display: flex; gap: 8px; }
+    input[type=text] { flex: 1; padding: 6px; }
+    li { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+    li.done span { text-decoration: line-through; color: #888; }
+    li button { margin-left: auto; }
+  </style>
+</head>
+<body>
+  <h1>Go Task Server</h1>
+  <p>A tiny UI for the <code>/tasks</code> API.</p>
+  <form id="f">
+    <input id="title" type="text" placeholder="New task..." required>
+    <button>Add</button>
+  </form>
+  <ul id="list"></ul>
+
+  <script>
+    const list = document.getElementById('list');
+
+    async function load() {
+      const tasks = await (await fetch('/tasks')).json();
+      list.innerHTML = '';
+      for (const t of tasks) {
+        const li = document.createElement('li');
+        li.className = t.done ? 'done' : '';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = t.done;
+        cb.onchange = () => api('PATCH', t.id, { done: cb.checked });
+        const span = document.createElement('span');
+        span.textContent = t.title; // textContent avoids XSS
+        const del = document.createElement('button');
+        del.textContent = 'Delete';
+        del.onclick = () => api('DELETE', t.id);
+        li.append(cb, span, del);
+        list.append(li);
+      }
+    }
+
+    async function api(method, id, body) {
+      await fetch('/tasks/' + id, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      load();
+    }
+
+    document.getElementById('f').onsubmit = async (e) => {
+      e.preventDefault();
+      const input = document.getElementById('title');
+      await fetch('/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: input.value }),
+      });
+      input.value = '';
+      load();
+    };
+
+    load();
+  </script>
+</body>
+</html>
